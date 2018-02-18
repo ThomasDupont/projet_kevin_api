@@ -1,10 +1,14 @@
 require('dotenv').config();
-global.ROOT             = __dirname;
-const express           = require('express');
-const app               = express();
-const CONF              = require('./config/conf');
+const express = require('express');
+const app = express();
+const CONF = require('./config/conf');
 const controllerFactory = require('./app/ControllerFactory');
-const bodyParser        = require('body-parser');
+const bodyParser = require('body-parser');
+const graphqlHTTP = require('express-graphql');
+const {buildSchema} = require('graphql');
+const schema = require('./config/graphQlSchema');
+const mongoose = require('mongoose');
+const cors = require('cors');
 
 /**
  * Main class
@@ -12,9 +16,13 @@ const bodyParser        = require('body-parser');
  * @author Thomas Dupont
  */
 class Main {
-    constructor ()
-    {
-        app.use(bodyParser.urlencoded({ extended: false }));
+    constructor() {
+        mongoose.connect(process.env.MONGODB_URI, {
+            promiseLibrary: global.Promise,
+        });
+        mongoose.connection.on('error', console.error.bind(console, 'MongoDB connection error:'));
+
+        app.use(bodyParser.urlencoded({extended: false}));
         // parse application/json
         app.use(bodyParser.json());
         app.use((req, res, next) => {
@@ -28,18 +36,32 @@ class Main {
             next();
         });
 
+        app.options('/graphql', cors());
+        app.use('/graphql', graphqlHTTP({
+            schema : buildSchema(schema),
+            rootValue: this.initRoot(),
+            graphiql: true,
+        }));
+
         this.initRouter();
 
         app.listen(3000, () => {
-            console.log('launched');
+            console.log('creadolphin api launched');
         });
     }
 
-    initRouter()
-    {
-        app.get(CONF.APIURL, (req, res) => {
-            this.render('Main', 'main', req, res);
-        });
+    initRoot() {
+        return {
+            getWebDesignList: (request) => {
+                return this.render('Webdesign', 'getList', request);
+            },
+            getWebDesign: (request) => {
+                return this.render('Webdesign', 'getSingleWebdesign', request);
+            }
+        };
+    }
+
+    initRouter() {
     }
 
     /**
@@ -49,11 +71,8 @@ class Main {
      * @param req The request
      * @param res The reponse event
      */
-    async render (c, m, req, res)
-    {
-        let result = await controllerFactory.init(c, m, req);
-        res.status(result.statusCode);
-        res.send(result);
+    async render(c, m, req, res) {
+        return await controllerFactory.init(c, m, req);
     }
 }
 

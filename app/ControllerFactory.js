@@ -1,5 +1,6 @@
 
 const fs = require('fs');
+const path = require('path');
 let controller = {};
 
 function readRecursive(dir) {
@@ -15,13 +16,13 @@ function readRecursive(dir) {
     });
 }
 
-readRecursive(ROOT+'/src/');
+readRecursive(path.join(__dirname , '../src/'));
 
 class ControllerFactory {
 
-    init (controller, method, req)
+    init (controllerName, method, req)
     {
-        return controller[controller+"Controller"][method+"Action"](req);
+        return controller[controllerName+"Controller"][method+"Action"](req);
     }
 }
 
